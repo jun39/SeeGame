@@ -6,7 +6,7 @@ public class AvatorController : MonoBehaviour
 {
 
 // 建物をすり抜けてしまうーーBlenderで分割してからインポートして、コライダーを当てる
-// カメラ追従 DemoとFreeCameraLogicのスクリプトはカメラと関係ない
+// つるつる滑ってしまうのでInput.GetAxis("Vertical")などの値を押した瞬間の値だけとる？？
 // バック（後ろ移動）が変な形になる
 
 
