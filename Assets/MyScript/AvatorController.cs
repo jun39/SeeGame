@@ -5,6 +5,14 @@ using UnityEngine;
 public class AvatorController : MonoBehaviour
 {
 
+// 建物をすり抜けてしまうーーBlenderで分割してからインポートして、コライダーを当てる
+// カメラ追従 DemoとFreeCameraLogicのスクリプトはカメラと関係ない
+// バック（後ろ移動）が変な形になる
+
+
+// MovementはBlend treeになっている Thresholdはしきい値（重みが100％になるパラメータの値）
+// https://yttm-work.jp/unity/unity_0038.html
+
 private enum ControlMode
     {
         /// <summary>
@@ -19,7 +27,7 @@ private enum ControlMode
 
     [SerializeField] private float m_moveSpeed = 2;
     [SerializeField] private float m_turnSpeed = 2;
-    [SerializeField] private float m_jumpForce = 20;
+    [SerializeField] private float m_jumpForce = 40;
 
     [SerializeField] private Animator m_animator = null;
     [SerializeField] private Rigidbody m_rigidBody = null;
@@ -29,7 +37,7 @@ private enum ControlMode
     private float m_currentV = 0;
     private float m_currentH = 0;
 
-    private readonly float m_interpolation = 10;
+    private readonly float m_interpolation = 0.7f;
     private readonly float m_walkScale = 0.33f;
     private readonly float m_backwardsWalkScale = 0.16f;
     private readonly float m_backwardRunScale = 0.66f;
@@ -42,8 +50,12 @@ private enum ControlMode
     private bool m_jumpInput = false;
 
     private bool m_isGrounded;
+    // m_isGroundedがtrueになると、Landの状態ににtransitする
 
     private List<Collider> m_collisions = new List<Collider>();
+
+    // 自分が作った仮のtransform
+    private Transform temp_trans;
 
     private void Awake()
     {
@@ -205,9 +217,14 @@ private enum ControlMode
         // m_interpolationは10
         m_currentV = Mathf.Lerp(m_currentV, v, Time.deltaTime * m_interpolation);
         m_currentH = Mathf.Lerp(m_currentH, h, Time.deltaTime * m_interpolation);
+        
+        // Debug.Log(m_currentH+"+"+m_currentV);
 
         Vector3 direction = cameraTransform.forward * m_currentV + cameraTransform.right * m_currentH;
         // forwardは前後方向のz軸の値でほかは全て０のベクトル
+        // カメラの向きを表す
+        float scalex=0.3f;
+        direction.x *=scalex;
 
         float directionLength = direction.magnitude;
         direction.y = 0;
@@ -220,9 +237,22 @@ private enum ControlMode
             // m_currentDirectionの初期値はゼロベクトル
             m_currentDirection = Vector3.Slerp(m_currentDirection, direction, Time.deltaTime * m_interpolation);
 // https://qiita.com/hibit/items/d457ca6f9091fbb80ce6#:~:text=Quaternion.LookRotation()%20%E3%81%A8%E3%81%84%E3%81%86%E9%96%A2%E6%95%B0,%E4%BB%A3%E7%94%A8%E3%81%A8%E3%81%97%E3%81%A6%E3%81%BF%E3%81%BE%E3%81%97%E3%82%87%E3%81%86%E3%80%82
-// 
+
+            // Quaternion rotation =Quaternion.LookRotation(m_currentDirection);
+            // Vector3 eulerAngle = new Vector3(0.0f, rotation.eulerAngles.y/5.0f, 0.0f);
+            
+            // var eulerAngles=rotation.eulerAngles;
+            // if(eulerAngles.y>180 || eulerAngles.y<0){
+
+            // }
+            // Debug.Log(rotation.eulerAngles.y/100);
+            // Debug.Log(m_currentDirection);
+            // transform.rotation = Quaternion.Euler(eulerAngle);
+
+// もとのローテーション
             transform.rotation = Quaternion.LookRotation(m_currentDirection);
             // transform.positonはアタッチされているオブジェクトを指す
+            // もとのやつ
             transform.position += m_currentDirection * m_moveSpeed * Time.deltaTime;
 
             m_animator.SetFloat("MoveSpeed", direction.magnitude);
@@ -235,19 +265,24 @@ private enum ControlMode
 
     private void JumpingAndLanding()
     {
+        // Time.timeはこのフレームの開始する時間(Read Only)。ゲーム開始からの時間(秒)です。
+        // https://docs.unity3d.com/ja/2019.4/ScriptReference/Time-time.html
         bool jumpCooldownOver = (Time.time - m_jumpTimeStamp) >= m_minJumpInterval;
 
         if (jumpCooldownOver && m_isGrounded && m_jumpInput)
         {
             m_jumpTimeStamp = Time.time;
+            // Vector3.upはVector3(0, 1, 0) と同じ意味　上方向の単位ベクトル
             m_rigidBody.AddForce(Vector3.up * m_jumpForce, ForceMode.Impulse);
         }
-
+// 今(m_isGrounded)地面についている状態で、少し前は地面についていない場合は状態をLandにする
         if (!m_wasGrounded && m_isGrounded)
         {
+            // Landのトリガーのパラメーターをアクティブにして遷移する
+            
             m_animator.SetTrigger("Land");
         }
-
+// その逆なので、今の状態はジャンプしている
         if (!m_isGrounded && m_wasGrounded)
         {
             m_animator.SetTrigger("Jump");
